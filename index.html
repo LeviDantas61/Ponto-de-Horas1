@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Horas Extras</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Ícones SVG simplificados
+        const Clock = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        );
+
+        const Plus = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+
+        const Trash2 = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+        const Edit2 = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+        );
+
+        const Calendar = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        );
+
+        const TrendingUp = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+        );
+
+        const Settings = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6m5.196-14.196l-4.243 4.243m0 5.905l-4.242 4.242m14.196-5.196l-4.243-4.243m0 5.905l-4.242 4.242"></path>
+            </svg>
+        );
+
+        function CalculadoraHorasExtras() {
+            const [registros, setRegistros] = useState([]);
+            const [editando, setEditando] = useState(null);
+            const [mostrarFormulario, setMostrarFormulario] = useState(false);
+            const [mostrarConfig, setMostrarConfig] = useState(false);
+            const [filtroMes, setFiltroMes] = useState('');
+            
+            const [configuracao, setConfiguracao] = useState({
+                horarioInicial: '07:00',
+                horarioSaidaAlmoco: '12:00',
+                horarioRetornoAlmoco: '13:00',
+                horarioSaida: '16:00'
+            });
+            
+            const [formulario, setFormulario] = useState({
+                mes: '',
+                dia: '',
+                horarioInicial: '',
+                horarioSaidaAlmoco: '',
+                horarioRetornoAlmoco: '',
+                horarioSaida: '',
+                cargaHorariaDiaria: ''
+            });
+
+            // Carregar registros e configuração do localStorage ao iniciar
+            useEffect(() => {
+                const registrosSalvos = localStorage.getItem('horasExtras');
+                if (registrosSalvos) {
+                    setRegistros(JSON.parse(registrosSalvos));
+                }
+                
+                const configSalva = localStorage.getItem('configJornada');
+                if (configSalva) {
+                    setConfiguracao(JSON.parse(configSalva));
+                }
+            }, []);
+
+            // Salvar registros no localStorage quando houver mudanças
+            useEffect(() => {
+                if (registros.length > 0) {
+                    localStorage.setItem('horasExtras', JSON.stringify(registros));
+                }
+            }, [registros]);
+
+            // Função para converter hora string para minutos
+            const horaParaMinutos = (hora) => {
+                if (!hora) return 0;
+                const [h, m] = hora.split(':').map(Number);
+                return h * 60 + m;
+            };
+
+            // Função para converter minutos para hora string
+            const minutosParaHora = (minutos) => {
+                const horas = Math.floor(Math.abs(minutos) / 60);
+                const mins = Math.abs(minutos) % 60;
+                const sinal = minutos < 0 ? '-' : '';
+                return `${sinal}${String(horas).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            };
+
+            // Calcular horas trabalhadas
+            const calcularHorasTrabalhadas = (dados) => {
+                const inicio = horaParaMinutos(dados.horarioInicial);
+                const saidaAlmoco = horaParaMinutos(dados.horarioSaidaAlmoco);
+                const retornoAlmoco = horaParaMinutos(dados.horarioRetornoAlmoco);
+                const saida = horaParaMinutos(dados.horarioSaida);
+                
+                const periodoManha = saidaAlmoco - inicio;
+                const periodoTarde = saida - retornoAlmoco;
+                const totalMinutos = periodoManha + periodoTarde;
+                
+                return minutosParaHora(totalMinutos);
+            };
+
+            // Calcular horas extras
+            const calcularHorasExtras = (dados) => {
+                const horasTrabalhadas = calcularHorasTrabalhadas(dados);
+                const totalTrabalhado = horaParaMinutos(horasTrabalhadas);
+                const cargaHoraria = horaParaMinutos(dados.cargaHorariaDiaria);
+                const extras = totalTrabalhado - cargaHoraria;
+                
+                return minutosParaHora(extras);
+            };
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormulario(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+            };
+
+            const aplicarJornadaPadrao = () => {
+                setFormulario(prev => ({
+                    ...prev,
+                    horarioInicial: configuracao.horarioInicial,
+                    horarioSaidaAlmoco: configuracao.horarioSaidaAlmoco,
+                    horarioRetornoAlmoco: configuracao.horarioRetornoAlmoco,
+                    horarioSaida: configuracao.horarioSaida
+                }));
+            };
+
+            const handleSalvarConfig = (e) => {
+                e.preventDefault();
+                localStorage.setItem('configJornada', JSON.stringify(configuracao));
+                setMostrarConfig(false);
+                alert('Configuração de jornada salva com sucesso!');
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                
+                const horasTrabalhadas = calcularHorasTrabalhadas(formulario);
+                const horasExtras = calcularHorasExtras(formulario);
+                
+                const novoRegistro = {
+                    id: editando ? editando.id : Date.now(),
+                    ...formulario,
+                    horasTrabalhadas,
+                    horasExtras
+                };
+
+                if (editando) {
+                    setRegistros(registros.map(r => r.id === editando.id ? novoRegistro : r));
+                    setEditando(null);
+                } else {
+                    setRegistros([...registros, novoRegistro]);
+                }
+
+                setFormulario({
+                    mes: '',
+                    dia: '',
+                    horarioInicial: '',
+                    horarioSaidaAlmoco: '',
+                    horarioRetornoAlmoco: '',
+                    horarioSaida: '',
+                    cargaHorariaDiaria: ''
+                });
+                setMostrarFormulario(false);
+            };
+
+            const handleEditar = (registro) => {
+                setFormulario({
+                    mes: registro.mes,
+                    dia: registro.dia,
+                    horarioInicial: registro.horarioInicial,
+                    horarioSaidaAlmoco: registro.horarioSaidaAlmoco,
+                    horarioRetornoAlmoco: registro.horarioRetornoAlmoco,
+                    horarioSaida: registro.horarioSaida,
+                    cargaHorariaDiaria: registro.cargaHorariaDiaria
+                });
+                setEditando(registro);
+                setMostrarFormulario(true);
+            };
+
+            const handleExcluir = (id) => {
+                if (window.confirm('Deseja realmente excluir este registro?')) {
+                    setRegistros(registros.filter(r => r.id !== id));
+                }
+            };
+
+            const calcularTotalMes = (mes) => {
+                const registrosMes = registros.filter(r => r.mes === mes);
+                const totalMinutos = registrosMes.reduce((acc, r) => {
+                    return acc + horaParaMinutos(r.horasExtras);
+                }, 0);
+                return minutosParaHora(totalMinutos);
+            };
+
+            const calcularTotalHorasTrabalhadasMes = (mes) => {
+                const registrosMes = registros.filter(r => r.mes === mes);
+                const totalMinutos = registrosMes.reduce((acc, r) => {
+                    return acc + horaParaMinutos(r.horasTrabalhadas);
+                }, 0);
+                return minutosParaHora(totalMinutos);
+            };
+
+            const mesesUnicos = [...new Set(registros.map(r => r.mes))].sort();
+            const registrosFiltrados = filtroMes 
+                ? registros.filter(r => r.mes === filtroMes)
+                : registros;
+
+            const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
+                if (a.mes !== b.mes) return b.mes.localeCompare(a.mes);
+                return Number(b.dia) - Number(a.dia);
+            });
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-indigo-600 p-3 rounded-xl">
+                                        <Clock size={28} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-gray-800">Horas Extras</h1>
+                                        <p className="text-gray-500 text-sm">Controle seu banco de horas</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setMostrarConfig(!mostrarConfig)}
+                                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-xl transition-colors shadow-md"
+                                        title="Configurar Jornada"
+                                    >
+                                        <Settings size={24} />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setMostrarFormulario(!mostrarFormulario);
+                                            setEditando(null);
+                                            setFormulario({
+                                                mes: '',
+                                                dia: '',
+                                                horarioInicial: configuracao.horarioInicial,
+                                                horarioSaidaAlmoco: configuracao.horarioSaidaAlmoco,
+                                                horarioRetornoAlmoco: configuracao.horarioRetornoAlmoco,
+                                                horarioSaida: configuracao.horarioSaida,
+                                                cargaHorariaDiaria: ''
+                                            });
+                                        }}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-colors shadow-md"
+                                    >
+                                        <Plus size={20} />
+                                        <span className="font-medium">Novo Registro</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Configuração de Jornada */}
+                        {mostrarConfig && (
+                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Settings size={24} className="text-indigo-600" />
+                                    <h2 className="text-xl font-bold text-gray-800">Configuração de Jornada Padrão</h2>
+                                </div>
+                                <p className="text-gray-600 mb-4 text-sm">
+                                    Configure seus horários padrão de trabalho. Estes valores serão preenchidos automaticamente ao criar um novo registro.
+                                </p>
+                                <form onSubmit={handleSalvarConfig}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Horário de Entrada
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={configuracao.horarioInicial}
+                                                onChange={(e) => setConfiguracao({...configuracao, horarioInicial: e.target.value})}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Saída para Almoço
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={configuracao.horarioSaidaAlmoco}
+                                                onChange={(e) => setConfiguracao({...configuracao, horarioSaidaAlmoco: e.target.value})}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Retorno do Almoço
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={configuracao.horarioRetornoAlmoco}
+                                                onChange={(e) => setConfiguracao({...configuracao, horarioRetornoAlmoco: e.target.value})}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Horário de Saída
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={configuracao.horarioSaida}
+                                                onChange={(e) => setConfiguracao({...configuracao, horarioSaida: e.target.value})}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                                        <p className="text-sm text-indigo-800">
+                                            <strong>Exemplo:</strong> Jornada 7h às 16h com 1h de almoço
+                                            <br />
+                                            Entrada: 07:00 | Almoço: 12:00-13:00 | Saída: 16:00
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            type="submit"
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium transition-colors shadow-md"
+                                        >
+                                            Salvar Configuração
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMostrarConfig(false)}
+                                            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl font-medium transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Resumo Mensal */}
+                        {mesesUnicos.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <TrendingUp size={24} className="text-indigo-600" />
+                                    <h2 className="text-xl font-bold text-gray-800">Resumo Mensal</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {mesesUnicos.map(mes => {
+                                        const totalExtras = calcularTotalMes(mes);
+                                        const totalTrabalhadas = calcularTotalHorasTrabalhadasMes(mes);
+                                        const minutosExtras = horaParaMinutos(totalExtras);
+                                        const isPositivo = minutosExtras >= 0;
+                                        const registrosMes = registros.filter(r => r.mes === mes);
+                                        
+                                        return (
+                                            <div 
+                                                key={mes} 
+                                                className="bg-gradient-to-br from-indigo-50 to-blue-50 p-5 rounded-xl border border-indigo-100"
+                                            >
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <p className="text-gray-600 text-sm font-medium">{mes}</p>
+                                                        <p className="text-xs text-gray-500">{registrosMes.length} {registrosMes.length === 1 ? 'dia' : 'dias'}</p>
+                                                    </div>
+                                                    <Calendar size={32} className="text-indigo-400" />
+                                                </div>
+                                                
+                                                <div className="space-y-2">
+                                                    <div className="bg-white p-3 rounded-lg">
+                                                        <p className="text-xs text-gray-600 mb-1">Total Trabalhado</p>
+                                                        <p className="text-xl font-bold text-blue-600">{totalTrabalhadas}</p>
+                                                    </div>
+                                                    
+                                                    <div className={`${isPositivo ? 'bg-green-50' : 'bg-red-50'} p-3 rounded-lg`}>
+                                                        <p className={`text-xs ${isPositivo ? 'text-green-700' : 'text-red-700'} mb-1`}>
+                                                            Horas Extras
+                                                        </p>
+                                                        <p className={`text-xl font-bold ${isPositivo ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {totalExtras}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Formulário */}
+                        {mostrarFormulario && (
+                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-gray-800">
+                                        {editando ? 'Editar Registro' : 'Novo Registro'}
+                                    </h2>
+                                    {!editando && (
+                                        <button
+                                            type="button"
+                                            onClick={aplicarJornadaPadrao}
+                                            className="text-sm bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                        >
+                                            <Settings size={16} />
+                                            Usar Jornada Padrão
+                                        </button>
+                                    )}
+                                </div>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mês
+                                            </label>
+                                            <input
+                                                type="month"
+                                                name="mes"
+                                                value={formulario.mes}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Dia
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="dia"
+                                                value={formulario.dia}
+                                                onChange={handleInputChange}
+                                                min="1"
+                                                max="31"
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Horário Inicial
+                                            </label>
+                                            <input
+                                                type="time"
+                                                name="horarioInicial"
+                                                value={formulario.horarioInicial}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Saída para Almoço
+                                            </label>
+                                            <input
+                                                type="time"
+                                                name="horarioSaidaAlmoco"
+                                                value={formulario.horarioSaidaAlmoco}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Retorno do Almoço
+                                            </label>
+                                            <input
+                                                type="time"
+                                                name="horarioRetornoAlmoco"
+                                                value={formulario.horarioRetornoAlmoco}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Horário de Saída
+                                            </label>
+                                            <input
+                                                type="time"
+                                                name="horarioSaida"
+                                                value={formulario.horarioSaida}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Carga Horária Diária
+                                            </label>
+                                            <input
+                                                type="time"
+                                                name="cargaHorariaDiaria"
+                                                value={formulario.cargaHorariaDiaria}
+                                                onChange={handleInputChange}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 pt-4">
+                                        <button
+                                            type="submit"
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium transition-colors shadow-md"
+                                        >
+                                            {editando ? 'Atualizar' : 'Adicionar'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMostrarFormulario(false);
+                                                setEditando(null);
+                                            }}
+                                            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl font-medium transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Filtro */}
+                        {mesesUnicos.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-xl p-4 mb-6">
+                                <div className="flex items-center gap-4">
+                                    <label className="text-sm font-medium text-gray-700">Filtrar por mês:</label>
+                                    <select
+                                        value={filtroMes}
+                                        onChange={(e) => setFiltroMes(e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    >
+                                        <option value="">Todos os meses</option>
+                                        {mesesUnicos.map(mes => (
+                                            <option key={mes} value={mes}>{mes}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Lista de Registros */}
+                        <div className="space-y-4">
+                            {registrosOrdenados.length === 0 ? (
+                                <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
+                                    <Clock size={64} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 text-lg">Nenhum registro encontrado</p>
+                                    <p className="text-gray-400 text-sm mt-2">Adicione seu primeiro registro de horas</p>
+                                </div>
+                            ) : (
+                                registrosOrdenados.map(registro => {
+                                    const minutosExtras = horaParaMinutos(registro.horasExtras);
+                                    const isPositivo = minutosExtras >= 0;
+                                    
+                                    return (
+                                        <div key={registro.id} className="bg-white rounded-2xl shadow-xl p-6">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-indigo-100 p-3 rounded-xl">
+                                                        <Calendar size={24} className="text-indigo-600" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-gray-800">
+                                                            {registro.dia} - {registro.mes}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-500">
+                                                            {registro.horarioInicial} às {registro.horarioSaida}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleEditar(registro)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Edit2 size={20} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleExcluir(registro.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 size={20} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                <div className="bg-gray-50 p-3 rounded-xl">
+                                                    <p className="text-xs text-gray-500 mb-1">Saída Almoço</p>
+                                                    <p className="font-semibold text-gray-800">{registro.horarioSaidaAlmoco}</p>
+                                                </div>
+                                                <div className="bg-gray-50 p-3 rounded-xl">
+                                                    <p className="text-xs text-gray-500 mb-1">Retorno Almoço</p>
+                                                    <p className="font-semibold text-gray-800">{registro.horarioRetornoAlmoco}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl">
+                                                    <p className="text-xs text-blue-600 font-medium mb-1">Total Trabalhado</p>
+                                                    <p className="text-2xl font-bold text-blue-700">{registro.horasTrabalhadas}</p>
+                                                </div>
+                                                <div className={`${isPositivo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border-2 p-4 rounded-xl`}>
+                                                    <p className={`text-xs ${isPositivo ? 'text-green-600' : 'text-red-600'} font-medium mb-1`}>
+                                                        Horas Extras
+                                                    </p>
+                                                    <p className={`text-2xl font-bold ${isPositivo ? 'text-green-700' : 'text-red-700'}`}>
+                                                        {registro.horasExtras}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<CalculadoraHorasExtras />, document.getElementById('root'));
+    </script>
+</body>
+</html>
